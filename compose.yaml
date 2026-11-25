@@ -1,0 +1,47 @@
+# Local demo: the payments ledger posts signed events to the fraud service.
+#   make up && make simulate-ledger
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: ledger
+    volumes: ["./deploy/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U app -d fraud"]  # TCP is only up once init scripts have run
+      interval: 2s
+      retries: 30
+    ports: ["5432:5432"]
+
+  fraud:
+    build: .
+    environment:
+      DATABASE_URL: postgres://app:app@postgres:5432/fraud?sslmode=disable&pool_max_conns=20
+      FRAUD_API_TOKEN: demo-fraud-token-0123456789abcdef0123
+      LEDGER_WEBHOOK_SECRET: demo-webhook-secret-0123456789abcdef0
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["8090:8090"]
+    healthcheck:
+      test: ["CMD", "/fraud", "-healthcheck", "http://localhost:8090/readyz"]
+      interval: 2s
+      retries: 20
+
+  # github.com/sillykea/payments-ledger, pinned to the commit that added
+  # signed webhooks.
+  ledger:
+    build: https://github.com/sillykea/payments-ledger.git#877903f0e891981472f60ee2460dfd32c331c355
+    environment:
+      DATABASE_URL: postgres://app:app@postgres:5432/ledger?sslmode=disable
+      LEDGER_API_TOKEN: demo-token-change-me-0123456789abcdef
+      OUTBOX_WEBHOOK_URL: http://fraud:8090/v1/events
+      OUTBOX_WEBHOOK_SECRET: demo-webhook-secret-0123456789abcdef0
+    depends_on:
+      postgres: { condition: service_healthy }
+      fraud: { condition: service_healthy }
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD", "/ledger", "-healthcheck", "http://localhost:8080/readyz"]
+      interval: 2s
+      retries: 20
