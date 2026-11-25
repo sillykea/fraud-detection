@@ -31,7 +31,7 @@ services:
   # github.com/sillykea/payments-ledger, pinned to the commit that added
   # signed webhooks.
   ledger:
-    build: https://github.com/sillykea/payments-ledger.git#877903f0e891981472f60ee2460dfd32c331c355
+    build: https://github.com/sillykea/payments-ledger.git#cea9d4b126a84247a381d5a1ad91d148e5df4450
     environment:
       DATABASE_URL: postgres://app:app@postgres:5432/ledger?sslmode=disable
       LEDGER_API_TOKEN: demo-token-change-me-0123456789abcdef
